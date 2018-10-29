@@ -527,6 +527,17 @@
         return min + Math.random() * (max - min);
     }
 
+    var bad = false;
+    function displayStatus(status, error) {
+        if (error) {
+            bad = true;  // errors are sticky--let's not overwrite error information if it occurs
+            d3.select(STATUS_ID).node().textContent = "* " + error;
+        }
+        else if (!bad) {
+            d3.select(STATUS_ID).node().textContent = "* " + status;
+        }
+    }
+
     function interpolateField(data, settings, masks) {
         log.time("interpolating field");
         var d = when.defer();
@@ -595,9 +606,10 @@
                         return;
                     }
                 }
-                //var date = data[0].date.replace(":00+09:00", "");
-                //d3.select(DISPLAY_ID).attr("data-date", displayData.date = date);
-                //displayStatus(date + " JST");
+                var currentdate = new Date();
+                var date = currentdate.getFullYear() + "-" + (currentdate.getMonth() + 1) + "-" + currentdate.getDate() + " " + currentdate.getHours() + ":00"
+                
+                displayStatus(date + " KST");
                 d.resolve(createField(columns));
                 log.timeEnd("interpolating field");
             }
@@ -626,10 +638,10 @@
     function displayStatus(status, error) {
         if (error) {
             bad = true;  // errors are sticky--let's not overwrite error information if it occurs
-            //d3.select(STATUS_ID).node().textContent = "⁂ " + error;
+            d3.select(STATUS_ID).node().textContent = "* " + error;
         }
         else if (!bad) {
-            //d3.select(STATUS_ID).node().textContent = "⁂ " + status;
+            d3.select(STATUS_ID).node().textContent = "* " + status;
         }
     }
 
