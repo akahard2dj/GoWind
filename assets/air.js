@@ -48,6 +48,16 @@
     };
     var overlayType = OVERLAY_TYPES[displayData.type];
 
+    function updateSampleLabel() {
+        // Show the overlay label, if any.
+        var recipe = displayData.recipe;
+        if (recipe) {
+            d3.select(SAMPLE_LABEL_ID).attr("style", "display: inline").text("+ " + recipe.label);
+        } else {
+            d3.select(SAMPLE_LABEL_ID).attr("style", "display: none");
+        }
+    }
+
     function init() {
         if ("ontouchstart" in document.documentElement) {
             document.addEventListener("touchstart", function() {}, false);  // this hack enables :active pseudoclass
@@ -106,7 +116,7 @@
 
     function createMercatorProjection(lng0, lat0, lng1, lat1, view) {
         var projection = d3.geo.mercator()
-            .center([126.9895, 37.5651])
+            .center([126.9795, 37.5501])
             .scale(1)
             .translate([0,0]);
         var p0 = projection([lng0, lat0]);
@@ -348,7 +358,7 @@
     }
 
     function formatVector(x, y) {
-        var d = Math.atan2(-x, y) / τ * 360;  // calculate into-the-wind cardinal degrees
+        var d = Math.atan2(-x, y) / tau * 360;  // calculate into-the-wind cardinal degrees
         var wd = Math.round((d + 360) % 360 / 5) * 5;  // shift [-180, 180] to [0, 360], and round to nearest 5.
         var m = Math.sqrt(x * x + y * y);
         return wd.toFixed(0) + "º @ " + m.toFixed(1) + " m/s";
