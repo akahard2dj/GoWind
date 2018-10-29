@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html itemscope itemtype="http://schema.org/Map" prefix="og: http://ogp.me/ns# fb: http://ogp.me/ns/fb#">
+<head>
+    <meta charset="utf-8"/>
+    <title>서울바람</title>
+    <link rel="stylesheet" type="text/css" href="/static/air.css"/>
+</head>
+<body>
+    <div id="display" data-topography="/data/topo_json/" data-type={{index . "data_type"}} data-date="" data-samples="/data/current/">
+        <div id="map">
+            <svg id="map-svg" xmlns="http://www.w3.org/2000/svg" version="1.1"></svg>
+        </div>
+        <div id="field">
+            <canvas id="field-canvas"></canvas>
+        </div>
+        <div id="overlay">
+            <canvas id="overlay-canvas"></canvas>
+        </div>
+        <div id="details">
+            <h1 id="type">서울바람</h1>
+            <h2 id="location">&nbsp;</h2>
+            <h2 id="point-details">&nbsp;</h2>
+        <span>Overlay | </span>
+            <span class="text-button" id="wind">None</span><span> / </span>
+            <span class="text-button" id="pm25">PM<span class="sub">2.5</span></span><span> / </span>
+            <span class="text-button" id="pm10">PM<span class="sub">10</span></span><span> / </span>
+            <span class="text-button" id="so2">SO<span class="sub">2</span></span><span> / </span>
+            <span class="text-button" id="no2">NO<span class="sub">2</span></span><span> / </span>
+            <span class="text-button" id="o3">O<span class="sub">3</span></span><span> / </span>
+            <span class="text-button" id="co">CO<span class="sub">2</span></span><span> / </span>
+            <span class="text-button" id="temperature">Temp</span><span> / </span>
+            <span class="text-button" id="humidity">Hum</span><span> / </span>
+            <p></p>
+        </div>
+    </div>
+
+    <script src="/static/js/require.v2.3.2.min.js"></script>
+    <script src="/static/air_config.js"></script>
+    <script src="/static/air.js" charset="utf-8"></script>
+</body>
+</html>
