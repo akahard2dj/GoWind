@@ -12,6 +12,7 @@
     var MAP_SVG_ID = '#map-svg';
     var DISPLAY_ID = "#display";
     var LOCATION_ID = "#location"
+    var SAMPLE_LABEL_ID = "#sample-label"
     var STATUS_ID = "#status";
     var POINT_DETAILS_ID = "#point-details";
     var FIELD_CANVAS_ID = "#field-canvas";
@@ -21,14 +22,14 @@
     // http://www.me.go.kr/mamo/web/index.do?menuId=586
     // one hour averaged
     var OVERLAY_TYPES = {
-        "temperature": {min: -20,   max: 60,    scale: "line", precision: 1, label: "기온 Temperature", unit: "ºC"},
-        "humidity":  {min: 0,     max: 100,   scale: "line", precision: 1, label: "습도 Humidity", unit: "%"},
-        "no2":  {min: 0.001, max: 0.1, scale: "log",  precision: 0, label: "이산화질소 Nitrogen Dioxide", unit: " ppb", multiplier: 1000},
-        "o3":   {min: 0.001,   max: 0.1,   scale: "log",  precision: 1, label: "오존 Ozone", unit: " ppm"},
-        "so2":  {min: 0.001, max: 0.15, scale: "log",  precision: 0, label: "이산화황 Sulfur Dioxide", unit: " ppb", multiplier: 1000},
-        "co":   {min: 0.1,   max: 25,   scale: "log",  precision: 1, label: "일산화탄소 Carbon Monoxide", unit: " ppm"},
-        "pm25": {min: 1,     max: 50,   scale: "log",  precision: 0, label: "미세먼지 2.5µm Particulate Matter", unit: ' μg/m<span class="sup">3</span>'},
-        "pm10": {min: 1,     max: 100,   scale: "log",  precision: 0, label: "미세먼지 10µm Particulate Matter", unit: ' μg/m<span class="sup">3</span>'}
+        "temperature": {min: -20,   max: 60,    scale: "line", precision: 1, label: "Temp (기온)", unit: "ºC"},
+        "humidity":  {min: 0,     max: 100,   scale: "line", precision: 1, label: "Hum (습도)", unit: "%"},
+        "no2":  {min: 0.001, max: 0.1, scale: "log",  precision: 3, label: 'NO<span class="sub">2</span> (이산화질소)', unit: " ppm"},
+        "o3":   {min: 0.001,   max: 0.1,   scale: "log",  precision: 3, label: 'O<span class="sub">3</span> (오존)', unit: " ppm"},
+        "so2":  {min: 0.001, max: 0.15, scale: "log",  precision: 3, label: 'SO<span class="sub">2</span> (이산화황)', unit: " ppm"},
+        "co":   {min: 0.1,   max: 25,   scale: "log",  precision: 1, label: 'CO (일산화탄소)', unit: " ppm"},
+        "pm25": {min: 1,     max: 50,   scale: "log",  precision: 0, label: 'PM<span class="sub">2.5</span> (미세먼지 2.5µm)', unit: ' μg/m<span class="sup">3</span>'},
+        "pm10": {min: 1,     max: 100,   scale: "log",  precision: 0, label: 'PM<span class="sub">10</span> (미세먼지 10µm)', unit: ' μg/m<span class="sup">3</span>'}
     };
 
 
@@ -44,15 +45,17 @@
     var displayData = {
         topography: d3.select(DISPLAY_ID).attr("data-topography"),
         samples: d3.select(DISPLAY_ID).attr("data-samples"),
-        type: d3.select(DISPLAY_ID).attr("data-type")
+        type: d3.select(DISPLAY_ID).attr("data-type"),   
     };
+
     var overlayType = OVERLAY_TYPES[displayData.type];
 
     function updateSampleLabel() {
         // Show the overlay label, if any.
-        var recipe = displayData.recipe;
+        console.log(displayData)
+        var recipe = OVERLAY_TYPES[displayData.type];
         if (recipe) {
-            d3.select(SAMPLE_LABEL_ID).attr("style", "display: inline").text("+ " + recipe.label);
+            d3.select(SAMPLE_LABEL_ID).attr("style", "display: inline").html("+ " + recipe.label);
         } else {
             d3.select(SAMPLE_LABEL_ID).attr("style", "display: none");
         }
@@ -97,8 +100,8 @@
             displayBounds: bounds,
             particleCount: Math.abs(Math.round(bounds.height)),
             maxParticleAge: 40,
-            velocityScale: +(bounds.height / 1000).toFixed(3),
-            fieldMaskWidth: isFF ? 1 :Math.ceil(bounds.height * 0.06),
+            velocityScale: +(bounds.height / 700).toFixed(3),
+            fieldMaskWidth: isFF ? 1 :Math.ceil(bounds.height * 0.001),
             fadeFillStyle: isFF ? "rgba(0,0,0,0.95)" : "rgba(0, 0, 0, 0.97)",
             frameRate: 40,
             animate: true,
@@ -116,7 +119,7 @@
 
     function createMercatorProjection(lng0, lat0, lng1, lat1, view) {
         var projection = d3.geo.mercator()
-            .center([126.9795, 37.5501])
+            .center([126.9755, 37.5551])
             .scale(1)
             .translate([0,0]);
         var p0 = projection([lng0, lat0]);
@@ -239,19 +242,25 @@
             if (isValidSample(e.wind)) {
                 features.push({
                     type: "Features",
-                    properties: {name: e.name},
+                    properties: {name: e.observatory_name},
                     geometry: {type: "Point", coordinates: e.coordinates}
+                    
                 });
             }
         });
-        mesh.path.pointRadius(1.5);
-            d3.select(MAP_SVG_ID).append("path")
-                .datum({type: "FeatureCollection", features: features})
-                .attr("class", "station")
-                .attr("d", mesh.path)
-                .on("mouseover", function(d) {
-                    div.transition().duration(200).style("opacity", .9);
-                });
+        mesh.path.pointRadius(3);
+        d3.select(MAP_SVG_ID).append("path")
+            .datum({type: "FeatureCollection", features: features})
+            .attr("class", "station")
+            .attr("d", mesh.path)
+            .on("mouseover", handleMouseOver);            
+    }
+
+    function handleMouseOver(d, i) {
+        d3.select(this).attr({
+            fill: "orange",
+            r: radius * 2
+          });
     }
 
     function drawOverlay(data, settings, masks) {
@@ -676,6 +685,7 @@
     }
 
     function postInit(settings, field, overlay) {
+        updateSampleLabel();
         d3.select(DISPLAY_ID).on("click", function() {
             var p = d3.mouse(this);
             var c = settings.projection.invert(p);
