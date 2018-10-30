@@ -6,7 +6,7 @@
     <link rel="stylesheet" type="text/css" href="/static/air.css"/>
 </head>
 <body>
-    <div id="display" data-topography="/data/topo_json/" data-type={{index . "data_type"}} data-date="" data-samples="/data/current/">
+    <div id="display" data-topography="/static/seoul_topo.json/" data-type={{index . "data_type"}} data-date="" data-samples="/data/current/">
         <div id="map">
             <svg id="map-svg" xmlns="http://www.w3.org/2000/svg" version="1.1"></svg>
         </div>
@@ -22,6 +22,7 @@
             <h2 id="status">&nbsp;</h2>
             <h2 id="location">&nbsp;</h2>            
             <h2 id="point-details">&nbsp;</h2>
+            <br>
         <span>Overlay | </span>
             <span class="text-button" id="wind">None</span><span> / </span>
             <span class="text-button" id="pm25">PM<span class="sub">2.5</span></span><span> / </span>
@@ -32,7 +33,18 @@
             <span class="text-button" id="co">CO<span class="sub">2</span></span><span> / </span>
             <span class="text-button" id="temperature">Temp</span><span> / </span>
             <span class="text-button" id="humidity">Hum</span><span> / </span>
-            <p></p>
+            <p>↓</p>
+        </div>
+        <div id="about">
+            <h1>About</h1>
+            <p>Air Data |
+                <a href="http://cleanair.seoul.go.kr/">서울시 대기환경 정보</a>, 
+                <a href="http://aws.seoul.go.kr/">서울시 자동기상관측시스템</a></p>
+            <p>Map Data | <a href="https://github.com/southkorea/seoul-maps">seoul-maps</a></p>
+            <p>Source | <a href="https://github.com/akahard2dj/SeoulWind">github.com/akahard2dj/SeoulWind</a></p>
+            <p>Inspiration |
+                <a href="http://hint.fm/wind/">HINT.FM wind map</a>,
+                <a href="https://air.nullschool.net/">東京風速</a></p>
         </div>
     </div>
 
