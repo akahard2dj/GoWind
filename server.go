@@ -147,7 +147,7 @@ func getJson(c echo.Context) error {
 }
 
 func initObservatory() {
-	db, err := gorm.Open("mysql", "root:boradowon1234@/devseoulwind?charset=utf8")
+	db, err := gorm.Open("mysql", "user:passwd@/devseoulwind?charset=utf8")
 	if err != nil {
 		log.Fatal(err)
 	}
