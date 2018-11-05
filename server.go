@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
@@ -95,7 +96,7 @@ func redirectPage(c echo.Context) error {
 }
 
 func getJson(c echo.Context) error {
-	db, err := gorm.Open("mysql", "root:boradowon1234@/devseoulwind?charset=utf8")
+	db, err := gorm.Open("mysql", "user:passwd@/devseoulwind?charset=utf8")
 	if err != nil {
 		log.Fatal(err)
 	}
