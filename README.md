@@ -1,7 +1,5 @@
 # GoWind
 
-# SeoulWind
-
 Welcome!
 
 ### Overlay
@@ -23,6 +21,8 @@ Welcome!
  - DB Engine : MySQL
  - Compiler : Go 1.11
  - Web framework : [Echo](https://echo.labstack.com/)
+ - ORM : [gorm](https://github.com/jinzhu/gorm)
+ - Parser : [goquery](https://github.com/PuerkitoBio/goquery)
  - javascripts
     - [D3](https://d3js.org/)
     - [requirejs](https://requirejs.org/)

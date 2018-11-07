@@ -4,13 +4,17 @@ import (
 	"bufio"
 	"encoding/csv"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/text/encoding/korean"
 	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -96,7 +100,7 @@ func redirectPage(c echo.Context) error {
 }
 
 func getJson(c echo.Context) error {
-	db, err := gorm.Open("mysql", "user:passwd@/devseoulwind?charset=utf8")
+	db, err := gorm.Open("mysql", "user:passwd@tcp(localhost:3306)/dev_gowind?charset=utf8")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -105,11 +109,11 @@ func getJson(c echo.Context) error {
 	airPollution := []AirPollution{}
 	weatherData := []WeatherData{}
 	observatory := []Observatory{}
-  
-  t := time.Now().Local()
 
-	timeString := fmt.Sprintf("%d-%d-%d %d:00", t.Year(), t.Month(), t.Day(), t.Hour())
-  
+	t := time.Now().Local()
+
+	timeString := fmt.Sprintf("%d-%d-%02d %d:00", t.Year(), t.Month(), t.Day(), t.Hour())
+
 	db.Where("tag_date = ?", timeString).Find(&airPollution)
 	db.Where("tag_date = ?", timeString).Find(&weatherData)
 	db.Find(&observatory)
@@ -146,8 +150,8 @@ func getJson(c echo.Context) error {
 	return c.JSON(http.StatusOK, airData)
 }
 
-func initObservatory() {
-	db, err := gorm.Open("mysql", "user:passwd@/devseoulwind?charset=utf8")
+func initObservatory(c echo.Context) error {
+	db, err := gorm.Open("mysql", "user:passwd@tcp(localhost:3306)/dev_gowind?charset=utf8")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -180,6 +184,160 @@ func initObservatory() {
 			fmt.Println()
 		}
 	}
+
+	return c.String(http.StatusOK, "Hello, World!")
+}
+
+func StringToFloat(strValue string) float64 {
+	val, err := strconv.ParseFloat(strValue, 64)
+	if err == nil {
+		return val
+	} else {
+		return -999
+	}
+}
+
+func WeatherDataScrape(c echo.Context) error {
+	db, err := gorm.Open("mysql", "user:passwd@tcp(localhost:3306)/dev_gowind?charset=utf8")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	resp, err := http.Get("http://aws.seoul.go.kr/RealTime/RealTimeWeatherUser.asp?TITLE=%C0%FC%20%C1%F6%C1%A1%20%C7%F6%C8%B2")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		log.Fatalf("status code error: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	bytes, err := ioutil.ReadAll(resp.Body)
+	euckrDecoder := korean.EUCKR.NewDecoder()
+	decodedContents, err := euckrDecoder.String(string(bytes))
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(decodedContents))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	timeItems := strings.Fields(doc.Find(".top tbody tr tbody tr td").Eq(1).Text())
+	re := regexp.MustCompile("[0-9]+")
+
+	year := re.FindAllString(timeItems[0], -1)
+	month := re.FindAllString(timeItems[1], -1)
+	day := re.FindAllString(timeItems[2], -1)
+	hour := re.FindAllString(timeItems[3], -1)
+
+	tagDate := fmt.Sprintf("%s-%s-%s %s:00", year[0], month[0], day[0], hour[0])
+
+	queryResult := WeatherData{}
+	db.Where("tag_date = ?", tagDate).First(&queryResult)
+	var doScrape bool
+	if queryResult.ID == 0 {
+		doScrape = true
+	} else {
+		doScrape = false
+	}
+
+	if doScrape {
+		items := doc.Find(".top .main tr td table tbody tr")
+		for i := 1; i < 27; i++ {
+			replacedItem := strings.Replace(items.Eq(i).Text(), "\n", "", -1)
+			listSubItem := strings.Fields(replacedItem)
+
+			obsName := listSubItem[1] + "구"
+			windDirection := StringToFloat(listSubItem[2])
+			windDirectionString := listSubItem[3]
+			windSpeed := StringToFloat(listSubItem[4])
+			temperature := StringToFloat(listSubItem[5])
+			precipitation := StringToFloat(listSubItem[6])
+			humidity := StringToFloat(listSubItem[8])
+
+			obs := WeatherData{}
+			obs.TagDate = tagDate
+			obs.ObsName = obsName
+			obs.WindDirection = windDirection
+			obs.WindDirectionString = windDirectionString
+			obs.WindSpeed = windSpeed
+			obs.Temperature = temperature
+			obs.Precipitation = precipitation
+			obs.Humidity = humidity
+
+			db.NewRecord(obs)
+			db.Create(&obs)
+		}
+	}
+	return c.String(http.StatusOK, "Hello, World!")
+}
+
+func AirPollutionScrape(c echo.Context) error {
+	db, err := gorm.Open("mysql", "user:passwd@tcp(localhost:3306)/dev_gowind?charset=utf8")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	resp, err := http.Get("http://cleanair.seoul.go.kr/air_city.htm?method=measure&grp1=pm10")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		log.Fatalf("status code error: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	items := doc.Find(".tbl2 tbody tr")
+	ii := strings.Fields(strings.Replace(items.Eq(0).Text(), "\n", "", -1))
+
+	tagDate := ii[0] + " " + ii[1]
+
+	queryResult := AirPollution{}
+	db.Where("tag_date = ?", tagDate).First(&queryResult)
+	var doScrape bool
+	if queryResult.ID == 0 {
+		doScrape = true
+	} else {
+		doScrape = false
+	}
+
+	if doScrape {
+		for i := 1; i < len(items.Nodes); i++ {
+			tagTime := items.Eq(i).Find("th").Text()
+			subItem := items.Eq(i).Find("td")
+			replacedSubItem := strings.Replace(subItem.Text(), "\n", "", -1)
+			listSubItem := strings.Fields(replacedSubItem)
+
+			obsName := listSubItem[0]
+			pm10 := StringToFloat(listSubItem[1])
+			pm25 := StringToFloat(listSubItem[2])
+			o3 := StringToFloat(listSubItem[3])
+			no2 := StringToFloat(listSubItem[4])
+			co := StringToFloat(listSubItem[5])
+			so2 := StringToFloat(listSubItem[6])
+			obs := AirPollution{}
+			obs.ObsName = obsName
+			obs.TagDate = tagTime
+			obs.ItemPM10 = pm10
+			obs.ItemPM25 = pm25
+			obs.ItemO3 = o3
+			obs.ItemNO2 = no2
+			obs.ItemCO = co
+			obs.ItemSO2 = so2
+			db.NewRecord(obs)
+			db.Create(&obs)
+		}
+	}
+	return c.String(http.StatusOK, "Hello, World!")
 }
 
 func getIndexAirPollution(data []AirPollution, obsName string) int {
@@ -221,7 +379,7 @@ func getIndexWeatherData(data []WeatherData, obsName string) int {
 }
 
 func main() {
-	db, err := gorm.Open("mysql", "user:passwd@/database?charset=utf8")
+	db, err := gorm.Open("mysql", "user:passwd@tcp(localhost:3306)/dev_gowind?charset=utf8")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -242,6 +400,9 @@ func main() {
 	e.GET("/data/topo_json/", byPass)
 	e.GET("/map/current/:data_type", redirectPage)
 	e.GET("/data/current/", getJson)
+	e.GET("/cronjob/init_obs", initObservatory)
+	e.GET("/cronjob/update_airpollution", AirPollutionScrape)
+	e.GET("/cronjob/update_weather", WeatherDataScrape)
 
 	e.Logger.Fatal(e.Start(":8000"))
 
