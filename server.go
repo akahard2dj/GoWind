@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/text/encoding/korean"
@@ -111,8 +110,9 @@ func getJSON(c echo.Context) error {
 	weatherData := []WeatherData{}
 	observatory := []Observatory{}
 
-	t := time.Now().Local()
-	timeString := fmt.Sprintf("%d-%02d-%02d %d:00", t.Year(), t.Month(), t.Day(), t.Hour())
+	airPollutionItem := AirPollution{}
+	db.Last(&airPollutionItem)
+	timeString := airPollutionItem.TagDate
 
 	db.Where("tag_date = ?", timeString).Find(&airPollution)
 	db.Where("tag_date = ?", timeString).Find(&weatherData)
