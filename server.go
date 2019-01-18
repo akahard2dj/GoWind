@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"encoding/csv"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"golang.org/x/text/encoding/korean"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -16,6 +14,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/text/encoding/korean"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
@@ -28,10 +29,10 @@ type TemplateRenderer struct {
 }
 
 type Observatory struct {
-	ID           uint
-	AWSName      string
-	AWSLongitude float64
-	AWSLatitude  float64
+	ID           uint    `json:id`
+	AWSName      string  `json:aws_name`
+	AWSLongitude float64 `json:aws_longitude`
+	AWSLatitude  float64 `json:aws_latitude`
 }
 
 type AirPollution struct {
@@ -99,7 +100,7 @@ func redirectPage(c echo.Context) error {
 	})
 }
 
-func getJson(c echo.Context) error {
+func getJSON(c echo.Context) error {
 	db, err := gorm.Open("mysql", "user:passwd@tcp(localhost:3306)/dev_gowind?charset=utf8")
 	if err != nil {
 		log.Fatal(err)
@@ -111,8 +112,7 @@ func getJson(c echo.Context) error {
 	observatory := []Observatory{}
 
 	t := time.Now().Local()
-
-	timeString := fmt.Sprintf("%d-%d-%02d %d:00", t.Year(), t.Month(), t.Day(), t.Hour())
+	timeString := fmt.Sprintf("%d-%02d-%02d %d:00", t.Year(), t.Month(), t.Day(), t.Hour())
 
 	db.Where("tag_date = ?", timeString).Find(&airPollution)
 	db.Where("tag_date = ?", timeString).Find(&weatherData)
@@ -122,29 +122,27 @@ func getJson(c echo.Context) error {
 	for i := 0; i < len(observatory); i++ {
 		air := AirData{}
 		idxAir := getIndexAirPollution(airPollution, observatory[i].AWSName)
-		if idxAir == -1 {
-			break
-		}
 		idxWeather := getIndexWeatherData(weatherData, observatory[i].AWSName)
-		if idxWeather == -1 {
-			break
+
+		if idxAir != -1 && idxWeather != -1 {
+			air.TagDate = airPollution[idxAir].TagDate
+			air.ObsName = airPollution[idxAir].ObsName
+			air.Location[0] = observatory[i].AWSLongitude
+			air.Location[1] = observatory[i].AWSLatitude
+			air.Wind[0] = weatherData[idxWeather].WindDirection
+			air.Wind[1] = weatherData[idxWeather].WindSpeed
+			air.Temperature = weatherData[idxWeather].Temperature
+			air.Humidity = weatherData[idxWeather].Humidity
+			air.Precipitation = weatherData[idxWeather].Precipitation
+			air.ItemPM25 = airPollution[idxAir].ItemPM25
+			air.ItemPM10 = airPollution[idxAir].ItemPM10
+			air.ItemO3 = airPollution[idxAir].ItemO3
+			air.ItemNO2 = airPollution[idxAir].ItemNO2
+			air.ItemCO = airPollution[idxAir].ItemCO
+			air.ItemSO2 = airPollution[idxAir].ItemSO2
+			airData = append(airData, air)
 		}
-		air.TagDate = airPollution[idxAir].TagDate
-		air.ObsName = airPollution[idxAir].ObsName
-		air.Location[0] = observatory[i].AWSLongitude
-		air.Location[1] = observatory[i].AWSLatitude
-		air.Wind[0] = weatherData[idxWeather].WindDirection
-		air.Wind[1] = weatherData[idxWeather].WindSpeed
-		air.Temperature = weatherData[idxWeather].Temperature
-		air.Humidity = weatherData[idxWeather].Humidity
-		air.Precipitation = weatherData[idxWeather].Precipitation
-		air.ItemPM25 = airPollution[idxAir].ItemPM25
-		air.ItemPM10 = airPollution[idxAir].ItemPM10
-		air.ItemO3 = airPollution[idxAir].ItemO3
-		air.ItemNO2 = airPollution[idxAir].ItemNO2
-		air.ItemCO = airPollution[idxAir].ItemCO
-		air.ItemSO2 = airPollution[idxAir].ItemSO2
-		airData = append(airData, air)
+
 	}
 
 	return c.JSON(http.StatusOK, airData)
@@ -163,7 +161,7 @@ func initObservatory(c echo.Context) error {
 
 	obsFile, err := os.Open("data/observatory.csv")
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 	}
 	csvReader := csv.NewReader(bufio.NewReader(obsFile))
 	rows, _ := csvReader.ReadAll()
@@ -179,16 +177,16 @@ func initObservatory(c echo.Context) error {
 			db.NewRecord(obs)
 			db.Create(&obs)
 			for j := range row {
-				fmt.Printf("%s ", rows[i][j])
+				log.Printf("%s ", rows[i][j])
 			}
-			fmt.Println()
+			log.Println()
 		}
 	}
 
-	return c.String(http.StatusOK, "Hello, World!")
+	return c.String(http.StatusOK, "Hello, World")
 }
 
-func StringToFloat(strValue string) float64 {
+func stringToFloat(strValue string) float64 {
 	val, err := strconv.ParseFloat(strValue, 64)
 	if err == nil {
 		return val
@@ -197,7 +195,7 @@ func StringToFloat(strValue string) float64 {
 	}
 }
 
-func WeatherDataScrape(c echo.Context) error {
+func weatherDataScrape(c echo.Context) error {
 	db, err := gorm.Open("mysql", "user:passwd@tcp(localhost:3306)/dev_gowind?charset=utf8")
 	if err != nil {
 		log.Fatal(err)
@@ -249,13 +247,19 @@ func WeatherDataScrape(c echo.Context) error {
 			replacedItem := strings.Replace(items.Eq(i).Text(), "\n", "", -1)
 			listSubItem := strings.Fields(replacedItem)
 
-			obsName := listSubItem[1] + "구"
-			windDirection := StringToFloat(listSubItem[2])
+			log.Println(listSubItem[1])
+			var obsName string
+			if listSubItem[1] == "중구" {
+				obsName = listSubItem[1]
+			} else {
+				obsName = listSubItem[1] + "구"
+			}
+			windDirection := stringToFloat(listSubItem[2])
 			windDirectionString := listSubItem[3]
-			windSpeed := StringToFloat(listSubItem[4])
-			temperature := StringToFloat(listSubItem[5])
-			precipitation := StringToFloat(listSubItem[6])
-			humidity := StringToFloat(listSubItem[8])
+			windSpeed := stringToFloat(listSubItem[4])
+			temperature := stringToFloat(listSubItem[5])
+			precipitation := stringToFloat(listSubItem[6])
+			humidity := stringToFloat(listSubItem[8])
 
 			obs := WeatherData{}
 			obs.TagDate = tagDate
@@ -274,7 +278,7 @@ func WeatherDataScrape(c echo.Context) error {
 	return c.String(http.StatusOK, "Hello, World!")
 }
 
-func AirPollutionScrape(c echo.Context) error {
+func airPollutionScrape(c echo.Context) error {
 	db, err := gorm.Open("mysql", "user:passwd@tcp(localhost:3306)/dev_gowind?charset=utf8")
 	if err != nil {
 		log.Fatal(err)
@@ -296,7 +300,7 @@ func AirPollutionScrape(c echo.Context) error {
 		log.Fatal(err)
 	}
 
-	items := doc.Find(".tbl2 tbody tr")
+	items := doc.Find(".tbl1 tbody tr")
 	ii := strings.Fields(strings.Replace(items.Eq(0).Text(), "\n", "", -1))
 
 	tagDate := ii[0] + " " + ii[1]
@@ -318,12 +322,12 @@ func AirPollutionScrape(c echo.Context) error {
 			listSubItem := strings.Fields(replacedSubItem)
 
 			obsName := listSubItem[0]
-			pm10 := StringToFloat(listSubItem[1])
-			pm25 := StringToFloat(listSubItem[2])
-			o3 := StringToFloat(listSubItem[3])
-			no2 := StringToFloat(listSubItem[4])
-			co := StringToFloat(listSubItem[5])
-			so2 := StringToFloat(listSubItem[6])
+			pm10 := stringToFloat(listSubItem[1])
+			pm25 := stringToFloat(listSubItem[2])
+			o3 := stringToFloat(listSubItem[3])
+			no2 := stringToFloat(listSubItem[4])
+			co := stringToFloat(listSubItem[5])
+			so2 := stringToFloat(listSubItem[6])
 			obs := AirPollution{}
 			obs.ObsName = obsName
 			obs.TagDate = tagTime
@@ -342,6 +346,7 @@ func AirPollutionScrape(c echo.Context) error {
 
 func getIndexAirPollution(data []AirPollution, obsName string) int {
 	for i := 0; i < len(data); i++ {
+		log.Println(data[i].ObsName, obsName)
 		if data[i].ObsName == obsName {
 			if data[i].ItemPM10 == -999 {
 				return -1
@@ -396,13 +401,14 @@ func main() {
 	e.Renderer = renderer
 	e.Static("/static", "assets")
 
+	e.Debug = true
+
 	e.GET("/", indexPage)
-	e.GET("/data/topo_json/", byPass)
 	e.GET("/map/current/:data_type", redirectPage)
-	e.GET("/data/current/", getJson)
+	e.GET("/data/current/", getJSON)
 	e.GET("/cronjob/init_obs", initObservatory)
-	e.GET("/cronjob/update_airpollution", AirPollutionScrape)
-	e.GET("/cronjob/update_weather", WeatherDataScrape)
+	e.GET("/cronjob/update_airpollution", airPollutionScrape)
+	e.GET("/cronjob/update_weather", weatherDataScrape)
 
 	e.Logger.Fatal(e.Start(":8000"))
 
